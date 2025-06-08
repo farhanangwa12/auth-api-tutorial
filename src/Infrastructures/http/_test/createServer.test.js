@@ -46,6 +46,8 @@ describe('HTTP server', () => {
     });
   });
 
+
+
   describe('when POST /users', () => {
     it('should response 201 and persisted user', async () => {
       // Arrange

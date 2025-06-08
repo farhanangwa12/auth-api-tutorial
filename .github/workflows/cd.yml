@@ -1,27 +1,43 @@
-name: Continuous Deployment
- 
-on: 
+name: Manual SSH Deployment
+
+on:
   push:
     branches:
       - main
- 
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
- 
+
     steps:
-    - name: SSH and deploy app
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USERNAME }}
-        key: ${{ secrets.SSH_KEY }}
-        port: ${{ secrets.SSH_PORT }}
-        script: |
+    - name: Checkout source code
+      uses: actions/checkout@v3
+
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+    - name: SSH into server and deploy
+      run: |
+        ssh -i ~/.ssh/id_rsa -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} << 'EOF'
           cd ~/auth-api
           git pull origin main
-          which npm
+
+          # install node if not exist
+          if ! command -v npm &> /dev/null; then
+            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+            sudo apt install -y nodejs
+          fi
+
+          # install pm2 if not exist
+          if ! command -v pm2 &> /dev/null; then
+            sudo npm install -g pm2
+          fi
+
           npm install
           npm run migrate up
-          which pm2
-          pm2 restart auth-api
+          pm2 restart app || pm2 start npm --name "app" -- start
+        EOF

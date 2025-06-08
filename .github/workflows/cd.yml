@@ -1,4 +1,4 @@
-name: Manual SSH Deployment
+name: Continuous Delivery
 
 on:
   push:
